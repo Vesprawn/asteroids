@@ -1,0 +1,1 @@
+rsync -a asteroids/ root@178.62.120.155:/var/www/asteroids
