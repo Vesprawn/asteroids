@@ -35,7 +35,10 @@ layout. Architecture decisions are recorded in [`docs/adr/`](docs/adr/README.md)
 
 ## Deploying
 
+`--delete` removes anything on the server that isn't in `dist/` (including old hashed bundles), so
+don't put files in that folder by hand.
+
 ```sh
 npm run build
-rsync -a dist/ root@178.62.120.155:/var/www/asteroids
+rsync -a --delete dist/ root@178.62.120.155:/var/www/asteroids
 ```
