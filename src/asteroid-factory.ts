@@ -1,5 +1,8 @@
 import {
+  ASTEROID_COLLISIONS,
+  ASTEROID_FRAGMENT_GRACE,
   ASTEROID_JAG,
+  ASTEROID_MAX_SPEED_FACTOR,
   ASTEROID_NUM,
   ASTEROID_NUM_ADD,
   ASTEROID_POINTS_LARGE,
@@ -7,7 +10,7 @@ import {
   ASTEROID_POINTS_SMALL,
   ASTEROID_RADIUS_LARGE,
   ASTEROID_RADIUS_MEDIUM,
-  ASTEROID_RADIUS_SMALL,
+  ASTEROID_RESTITUTION,
   ASTEROID_SIZE,
   ASTEROID_SPEED,
   ASTEROID_VERTICIES,
@@ -15,13 +18,24 @@ import {
 } from './config'
 import { Asteroid } from './entities/asteroid'
 import type { Ship } from './entities/ship'
+import { circlesOverlap, clampSpeed, resolveCollision, separateBodies } from './physics/collision'
 import { randomSpin } from './physics/rotation'
+import { canShatter, FRAGMENT_COUNT, fragmentRadius, shatterChance } from './physics/shatter'
 import type { Bounds, DebugFlags } from './types'
 import { distanceBetweenPoints } from './utils/geometry'
 
+/** Attempts to find a free spawn position before giving up and accepting an overlap. */
+const MAX_SPAWN_ATTEMPTS = 100
+
+const pointsFor = (r: number): number => {
+  if (r === ASTEROID_RADIUS_LARGE) return ASTEROID_POINTS_LARGE
+  if (r === ASTEROID_RADIUS_MEDIUM) return ASTEROID_POINTS_MEDIUM
+  return ASTEROID_POINTS_SMALL
+}
+
 export interface AsteroidFactoryConfig {
   bounds: Bounds
-  /** Called with the points earned whenever an asteroid is destroyed. */
+  /** Called with the points earned whenever the player destroys an asteroid. */
   onScore: (points: number) => void
   /** Called when every asteroid in the belt has been destroyed. */
   onCleared: () => void
@@ -33,6 +47,7 @@ export class AsteroidFactory {
   bounds: Bounds
   asteroids: Asteroid[] = []
   private levelMultiplier = 1
+  private nextFamilyId = 0
   private readonly onScore: (points: number) => void
   private readonly onCleared: () => void
   private readonly random: () => number
@@ -52,13 +67,19 @@ export class AsteroidFactory {
       let x: number
       let y: number
 
-      // Keep new asteroids away from the ship's spawn point
+      // Keep new asteroids away from the ship's spawn point (as before), and avoid spawning on top of
+      // another asteroid where possible
+      let attempts = 0
       do {
         x = Math.floor(this.random() * this.bounds.w)
         y = Math.floor(this.random() * this.bounds.h)
-      } while (distanceBetweenPoints(ship.x, ship.y, x, y) < ASTEROID_SIZE * 2 + ship.r)
+        attempts += 1
+      } while (
+        distanceBetweenPoints(ship.x, ship.y, x, y) < ASTEROID_SIZE * 2 + ship.r ||
+        (attempts < MAX_SPAWN_ATTEMPTS && this.overlapsExisting(x, y, ASTEROID_RADIUS_LARGE))
+      )
 
-      this.newAsteroid(x, y, ASTEROID_RADIUS_LARGE)
+      this.addAsteroid(x, y, ASTEROID_RADIUS_LARGE)
     }
   }
 
@@ -76,24 +97,12 @@ export class AsteroidFactory {
   }
 
   private checkCollisions(ship: Ship): void {
-    this.asteroids.forEach((asteroid) => {
-      ship.lasers.forEach((laser) => {
-        if (
-          !laser.dead &&
-          distanceBetweenPoints(laser.x, laser.y, asteroid.x, asteroid.y) < asteroid.r
-        ) {
-          this.destroyAsteroid(asteroid)
-          laser.dead = true
-        }
-      })
+    this.checkPlayerCollisions(ship)
 
-      if (!ship.isExploding() && ship.blinkNumber === 0 && !ship.dead) {
-        if (distanceBetweenPoints(ship.x, ship.y, asteroid.x, asteroid.y) <= ship.r + asteroid.r) {
-          this.destroyAsteroid(asteroid)
-          ship.explode()
-        }
-      }
-    })
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- tuning flag in config
+    if (ASTEROID_COLLISIONS) {
+      this.checkAsteroidCollisions()
+    }
 
     this.asteroids = this.asteroids.filter((asteroid) => !asteroid.dead)
 
@@ -102,24 +111,94 @@ export class AsteroidFactory {
     }
   }
 
+  private checkPlayerCollisions(ship: Ship): void {
+    this.asteroids.forEach((asteroid) => {
+      ship.lasers.forEach((laser) => {
+        if (
+          !laser.dead &&
+          !asteroid.dead &&
+          distanceBetweenPoints(laser.x, laser.y, asteroid.x, asteroid.y) < asteroid.r
+        ) {
+          this.destroyAsteroid(asteroid)
+          laser.dead = true
+        }
+      })
+
+      if (!asteroid.dead && !ship.isExploding() && ship.blinkNumber === 0 && !ship.dead) {
+        if (distanceBetweenPoints(ship.x, ship.y, asteroid.x, asteroid.y) <= ship.r + asteroid.r) {
+          this.destroyAsteroid(asteroid)
+          ship.explode()
+        }
+      }
+    })
+  }
+
+  /** Bounces overlapping asteroids off each other and rolls for each to shatter. */
+  private checkAsteroidCollisions(): void {
+    // Snapshot: fragments created this frame are not checked until the next frame
+    const asteroids = this.asteroids
+
+    for (let i = 0; i < asteroids.length; i += 1) {
+      for (let j = i + 1; j < asteroids.length; j += 1) {
+        const a = asteroids[i]
+        const b = asteroids[j]
+
+        if (a.dead || b.dead) continue
+        if (a.familyId === b.familyId && (a.isInGrace() || b.isInGrace())) continue
+        if (!circlesOverlap(a, b)) continue
+
+        separateBodies(a, b)
+        const closingSpeed = resolveCollision(a, b, ASTEROID_RESTITUTION)
+        if (closingSpeed <= 0) continue
+
+        clampSpeed(a, this.maxSpeed())
+        clampSpeed(b, this.maxSpeed())
+
+        const chance = shatterChance(closingSpeed * FPS)
+        ;[a, b].forEach((asteroid) => {
+          if (canShatter(asteroid.r) && !asteroid.isInGrace() && this.random() < chance) {
+            this.shatter(asteroid)
+          }
+        })
+      }
+    }
+  }
+
+  /** Player destroyed an asteroid (laser or ship impact): shatter it and award points. */
   private destroyAsteroid(asteroid: Asteroid): void {
+    this.shatter(asteroid)
+    this.onScore(pointsFor(asteroid.r))
+  }
+
+  /**
+   * Removes an asteroid and, if it is big enough, replaces it with fragments of the next size down.
+   * The shatter chain is defined once in `fragmentRadius` and shared by every cause of shattering.
+   */
+  private shatter(asteroid: Asteroid): void {
     asteroid.dead = true
 
-    if (asteroid.r === ASTEROID_RADIUS_LARGE) {
-      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_MEDIUM)
-      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_MEDIUM)
-      this.onScore(ASTEROID_POINTS_LARGE)
-      return
-    }
+    const r = fragmentRadius(asteroid.r)
+    if (r === undefined) return
 
-    if (asteroid.r === ASTEROID_RADIUS_MEDIUM) {
-      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_SMALL)
-      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_SMALL)
-      this.onScore(ASTEROID_POINTS_MEDIUM)
-      return
-    }
+    const familyId = this.nextFamilyId
+    this.nextFamilyId += 1
+    const graceFrames = Math.ceil(ASTEROID_FRAGMENT_GRACE * FPS)
 
-    this.onScore(ASTEROID_POINTS_SMALL)
+    for (let i = 0; i < FRAGMENT_COUNT; i += 1) {
+      this.addAsteroid(asteroid.x, asteroid.y, r, familyId, graceFrames)
+    }
+  }
+
+  /** Speed cap (pixels per frame) applied after bounces; 0 means uncapped. */
+  private maxSpeed(): number {
+    const maxAxisSpeed = (ASTEROID_SPEED * this.levelMultiplier) / FPS
+    return ASTEROID_MAX_SPEED_FACTOR * Math.SQRT2 * maxAxisSpeed
+  }
+
+  private overlapsExisting(x: number, y: number, r: number): boolean {
+    return this.asteroids.some(
+      (asteroid) => distanceBetweenPoints(x, y, asteroid.x, asteroid.y) < r + asteroid.r,
+    )
   }
 
   private randomVelocity(): number {
@@ -136,8 +215,9 @@ export class AsteroidFactory {
     )
   }
 
-  private newAsteroid(x: number, y: number, r: number): void {
+  private addAsteroid(x: number, y: number, r: number, familyId?: number, graceFrames = 0): void {
     const verticies = Math.floor(this.random() * (ASTEROID_VERTICIES + 1) + ASTEROID_VERTICIES / 2)
+    const id = familyId ?? this.nextFamilyId++
 
     this.asteroids = [
       ...this.asteroids,
@@ -151,6 +231,8 @@ export class AsteroidFactory {
         a: this.random() * Math.PI * 2,
         spin: randomSpin(r, this.random),
         offsets: this.createJagOffsets(verticies),
+        familyId: id,
+        graceFrames,
       }),
     ]
   }

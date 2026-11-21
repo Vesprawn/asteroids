@@ -30,6 +30,21 @@ export const ASTEROID_SPIN_MAX = 60 // degrees per second
 // 0.5 = small spins ~2× large, 1 = small spins ~4× large.
 export const ASTEROID_SPIN_SIZE_EXPONENT = 0.5
 
+// Asteroid-asteroid collisions (docs/adr/0010)
+export const ASTEROID_COLLISIONS = true // asteroids bounce off (and may shatter) each other
+export const ASTEROID_RESTITUTION = 1 // bounciness: 1 = perfectly elastic, 0 = no bounce
+// Collisions transfer energy to smaller asteroids, so cap speed after a bounce at this multiple of the
+// maximum starting speed for the level (ASTEROID_SPEED × level multiplier, per axis). 0 = no cap.
+export const ASTEROID_MAX_SPEED_FACTOR = 2
+// Chance of shattering scales with impact speed (closing speed along the line of contact, px/s):
+// 0 below MIN, rising linearly to MAX_CHANCE at FULL. Each asteroid in a collision rolls separately.
+// Shattering follows the same chain as laser hits; small asteroids never shatter, only bounce.
+export const ASTEROID_SHATTER_MIN_IMPACT = 60 // px/s
+export const ASTEROID_SHATTER_FULL_IMPACT = 200 // px/s
+export const ASTEROID_SHATTER_MAX_CHANCE = 0.3 // 0..1
+// Seconds after shattering during which fragments ignore their siblings and can't shatter again
+export const ASTEROID_FRAGMENT_GRACE = 0.5
+
 export const LASER_COLOUR = '#e6ffff' //  'white' // 'magenta'
 export const LASER_DISTANCE = 0.6 // max distance can travel as fraction of screen width
 export const LASER_SPEED = 500 // speed of lasers in pixels

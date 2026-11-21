@@ -13,6 +13,10 @@ export interface AsteroidConfig {
   spin: number
   verticies: number
   offsets: number[]
+  /** Asteroids created by the same shatter share a family id (see AsteroidFactory). */
+  familyId?: number
+  /** Frames during which this asteroid ignores its siblings and cannot shatter. */
+  graceFrames?: number
 }
 
 export class Asteroid {
@@ -25,6 +29,8 @@ export class Asteroid {
   spin: number
   verticies: number
   offsets: number[]
+  familyId: number
+  graceFrames: number
   dead = false
 
   constructor(config: AsteroidConfig) {
@@ -37,10 +43,17 @@ export class Asteroid {
     this.spin = config.spin
     this.verticies = config.verticies
     this.offsets = config.offsets
+    this.familyId = config.familyId ?? -1
+    this.graceFrames = config.graceFrames ?? 0
+  }
+
+  isInGrace(): boolean {
+    return this.graceFrames > 0
   }
 
   update(bounds: Bounds): void {
     this.a = (this.a + this.spin) % (Math.PI * 2)
+    if (this.graceFrames > 0) this.graceFrames -= 1
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- tuning flag in config
     if (!ASTEROID_MOVES) return
