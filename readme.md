@@ -14,6 +14,7 @@ npm install
 | ------------------- | ---------------------------------------------------------------------- |
 | `npm run build`     | Production build into `dist/` (minified, content-hashed filenames)     |
 | `npm run watch`     | Development build into `dist/`, rebuilding on every change (no server) |
+| `npm test`          | Run unit tests with Vitest (`npm run test:watch` to re-run on change)  |
 | `npm run typecheck` | Type-check without building                                            |
 | `npm run lint`      | Lint with ESLint (`npm run lint:fix` to auto-fix)                      |
 | `npm run format`    | Format with Prettier (`npm run format:check` to verify only)           |
@@ -26,6 +27,11 @@ refresh the page to pick up changes.
 Add `?name=amy` (or `ian`, `kard`) to the URL to change the ship colour.
 
 Controls: arrow keys to turn and thrust, space to fire, Esc to pause.
+
+Asteroids spin and bounce off each other; hard impacts can shatter them into smaller pieces (no points
+are awarded for those). Rotation, collisions and shatter chances are tunable in `src/config.ts`; see
+[ADR 0009](docs/adr/0009-asteroid-rotation.md) and
+[ADR 0010](docs/adr/0010-asteroid-collisions-and-shattering.md).
 
 ## Project structure
 
