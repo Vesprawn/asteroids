@@ -4,6 +4,8 @@ const params = new Proxy(new URLSearchParams(window.location.search), {
 // Get the value of "some_key" in eg "https://example.com/?some_key=some_value"
 const player = params.name || '' // "some_value"
 
+let is_game_paused = false;
+
 const ASTEROID_MOVES = true // [true] controls if asteroids will update positions
 const ASTEROID_JAG = 0.4 // jaggedness of the asteroids 0 = none, 1 = lots
 const ASTEROID_NUM = 3 // [3] starting number of asteroids
@@ -631,8 +633,13 @@ const setCanvasSize = () => {
 
 const keyDown = (evnt) => {
   if (ship.dead) return
+  console.log('keycode', evnt.keyCode)
 
   switch (evnt.keyCode) {
+    case 27:
+      evnt.preventDefault();
+      is_game_paused = !is_game_paused
+      break;
     case 32: // space
       ship.shooting = true
       // ship.fireLaser()
@@ -703,6 +710,8 @@ const drawLives = (ctx) => {
 }
 
 const update = () => {
+  if (is_game_paused) return;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   ship.update()
