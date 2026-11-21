@@ -42,8 +42,9 @@ export const ASTEROID_MAX_SPEED_FACTOR = 2
 export const ASTEROID_SHATTER_MIN_IMPACT = 60 // px/s
 export const ASTEROID_SHATTER_FULL_IMPACT = 200 // px/s
 export const ASTEROID_SHATTER_MAX_CHANCE = 0.3 // 0..1
-// Seconds after shattering during which fragments ignore their siblings and can't shatter again
-export const ASTEROID_FRAGMENT_GRACE = 0.5
+// Seconds after shattering during which fragments pass through other asteroids (no bounce, no
+// shatter). They can still be hit by lasers and collide with the ship.
+export const ASTEROID_FRAGMENT_GRACE = 1.5
 
 export const LASER_COLOUR = '#e6ffff' //  'white' // 'magenta'
 export const LASER_DISTANCE = 0.6 // max distance can travel as fraction of screen width

@@ -41,9 +41,13 @@ asteroid's speed is capped at `ASTEROID_MAX_SPEED_FACTOR` × the level's maximum
   `ASTEROID_SHATTER_FULL_IMPACT`. Gentle bumps just bounce.
 - Each asteroid in a collision rolls independently, so one, both or neither may shatter.
 - Collision shatters award **no points**; only player-caused destruction scores.
-- Fragments share a "family" and get a grace period (`ASTEROID_FRAGMENT_GRACE`) during which they
-  ignore their siblings (they spawn on top of each other) and cannot shatter again, which prevents
-  instant chain reactions.
+- Every new fragment (whatever caused the split) gets a grace period of `ASTEROID_FRAGMENT_GRACE`
+  seconds (default 1.5). During it the fragment ignores collisions with **all** other asteroids: no
+  bounce and no shatter, in either direction. This stops freshly split pieces, which spawn on top of
+  each other and often inside whatever they hit, from immediately shattering again. Lasers and the
+  ship still collide with fragments as normal during the grace period.
+- When the grace period ends, any remaining overlap is resolved by the normal separation step and
+  the pieces bounce only if they are still moving towards each other.
 - New asteroids at the start of a level avoid spawning overlapping each other where possible.
 
 Default tuning (min 60 px/s, full 200 px/s, max chance 0.3, speed cap ×2) was chosen by simulating

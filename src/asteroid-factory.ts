@@ -47,7 +47,6 @@ export class AsteroidFactory {
   bounds: Bounds
   asteroids: Asteroid[] = []
   private levelMultiplier = 1
-  private nextFamilyId = 0
   private readonly onScore: (points: number) => void
   private readonly onCleared: () => void
   private readonly random: () => number
@@ -144,7 +143,8 @@ export class AsteroidFactory {
         const b = asteroids[j]
 
         if (a.dead || b.dead) continue
-        if (a.familyId === b.familyId && (a.isInGrace() || b.isInGrace())) continue
+        // Fresh fragments pass through other asteroids until their grace period ends
+        if (a.isInGrace() || b.isInGrace()) continue
         if (!circlesOverlap(a, b)) continue
 
         separateBodies(a, b)
@@ -156,7 +156,7 @@ export class AsteroidFactory {
 
         const chance = shatterChance(closingSpeed * FPS)
         ;[a, b].forEach((asteroid) => {
-          if (canShatter(asteroid.r) && !asteroid.isInGrace() && this.random() < chance) {
+          if (canShatter(asteroid.r) && this.random() < chance) {
             this.shatter(asteroid)
           }
         })
@@ -180,12 +180,10 @@ export class AsteroidFactory {
     const r = fragmentRadius(asteroid.r)
     if (r === undefined) return
 
-    const familyId = this.nextFamilyId
-    this.nextFamilyId += 1
     const graceFrames = Math.ceil(ASTEROID_FRAGMENT_GRACE * FPS)
 
     for (let i = 0; i < FRAGMENT_COUNT; i += 1) {
-      this.addAsteroid(asteroid.x, asteroid.y, r, familyId, graceFrames)
+      this.addAsteroid(asteroid.x, asteroid.y, r, graceFrames)
     }
   }
 
@@ -215,9 +213,8 @@ export class AsteroidFactory {
     )
   }
 
-  private addAsteroid(x: number, y: number, r: number, familyId?: number, graceFrames = 0): void {
+  private addAsteroid(x: number, y: number, r: number, graceFrames = 0): void {
     const verticies = Math.floor(this.random() * (ASTEROID_VERTICIES + 1) + ASTEROID_VERTICIES / 2)
-    const id = familyId ?? this.nextFamilyId++
 
     this.asteroids = [
       ...this.asteroids,
@@ -231,7 +228,6 @@ export class AsteroidFactory {
         a: this.random() * Math.PI * 2,
         spin: randomSpin(r, this.random),
         offsets: this.createJagOffsets(verticies),
-        familyId: id,
         graceFrames,
       }),
     ]

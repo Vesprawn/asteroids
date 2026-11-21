@@ -13,9 +13,7 @@ export interface AsteroidConfig {
   spin: number
   verticies: number
   offsets: number[]
-  /** Asteroids created by the same shatter share a family id (see AsteroidFactory). */
-  familyId?: number
-  /** Frames during which this asteroid ignores its siblings and cannot shatter. */
+  /** Frames during which this asteroid ignores collisions with other asteroids. */
   graceFrames?: number
 }
 
@@ -29,7 +27,6 @@ export class Asteroid {
   spin: number
   verticies: number
   offsets: number[]
-  familyId: number
   graceFrames: number
   dead = false
 
@@ -43,7 +40,6 @@ export class Asteroid {
     this.spin = config.spin
     this.verticies = config.verticies
     this.offsets = config.offsets
-    this.familyId = config.familyId ?? -1
     this.graceFrames = config.graceFrames ?? 0
   }
 

@@ -20,7 +20,7 @@ const asteroid = (
   x: number,
   xv: number,
   r: number,
-  extra: Partial<{ familyId: number; graceFrames: number }> = {},
+  extra: Partial<{ graceFrames: number }> = {},
 ): Asteroid =>
   new Asteroid({
     x,
@@ -32,7 +32,6 @@ const asteroid = (
     spin: 0,
     verticies: 8,
     offsets: Array.from({ length: 8 }, () => 1),
-    familyId: extra.familyId ?? Math.random(),
     graceFrames: extra.graceFrames ?? 0,
   })
 
@@ -127,34 +126,70 @@ describe('AsteroidFactory asteroid collisions', () => {
     expect(b.xv).toBeGreaterThan(0)
   })
 
-  it('does not shatter fragments that are still in their grace period', () => {
+  it('lets fragments in their grace period pass through any other asteroid', () => {
+    const { factory } = setup(() => 0)
+    const fragment = asteroid(1000, FAST, ASTEROID_RADIUS_MEDIUM, { graceFrames: 5 })
+    const other = asteroid(1000 + ASTEROID_RADIUS_LARGE, -FAST, ASTEROID_RADIUS_LARGE)
+    factory.asteroids = [fragment, other]
+
+    factory.update(farShip())
+
+    expect(factory.asteroids).toEqual([fragment, other]) // no shatter
+    expect(fragment.xv).toBe(FAST) // no bounce
+    expect(other.xv).toBe(-FAST)
+  })
+
+  it('collides normally once the grace period has ended', () => {
+    const { factory } = setup(() => 0.99) // never shatter, so we only observe the bounce
+    const graceFrames = Math.ceil(ASTEROID_FRAGMENT_GRACE * FPS)
+    const a = asteroid(1000, SLOW, ASTEROID_RADIUS_MEDIUM, { graceFrames })
+    // Overlapping, and still approaching each other when the grace period ends
+    const b = asteroid(1040, -SLOW, ASTEROID_RADIUS_MEDIUM, { graceFrames })
+    factory.asteroids = [a, b]
+
+    for (let frame = 0; frame < graceFrames; frame += 1) {
+      factory.update(farShip())
+    }
+    expect(a.xv).toBeCloseTo(SLOW) // ignored each other for the whole grace period
+
+    factory.update(farShip())
+    expect(a.xv).toBeLessThan(0) // now they bounce
+  })
+
+  it('gives fragments a grace period of ASTEROID_FRAGMENT_GRACE seconds', () => {
     const { factory } = setup(() => 0)
     factory.asteroids = [
-      asteroid(1000, FAST, ASTEROID_RADIUS_MEDIUM, { graceFrames: 5 }),
-      asteroid(1000 + ASTEROID_RADIUS_MEDIUM * 2 - 5, -FAST, ASTEROID_RADIUS_MEDIUM, {
-        graceFrames: 5,
-      }),
+      asteroid(1000, FAST, ASTEROID_RADIUS_LARGE),
+      asteroid(1000 + ASTEROID_RADIUS_LARGE * 2 - 5, -FAST, ASTEROID_RADIUS_LARGE),
     ]
 
     factory.update(farShip())
 
-    expect(factory.asteroids).toHaveLength(2)
+    const expected = Math.ceil(ASTEROID_FRAGMENT_GRACE * FPS) - 1 // one frame has elapsed
+    expect(factory.asteroids.every((x) => x.graceFrames === expected)).toBe(true)
   })
 
-  it('lets sibling fragments pass through each other during the grace period only', () => {
-    const { factory } = setup(() => 0)
-    const graceFrames = Math.ceil(ASTEROID_FRAGMENT_GRACE * FPS)
-    const a = asteroid(1000, SLOW, ASTEROID_RADIUS_MEDIUM, { familyId: 7, graceFrames })
-    const b = asteroid(1010, -SLOW, ASTEROID_RADIUS_MEDIUM, { familyId: 7, graceFrames })
-    factory.asteroids = [a, b]
+  it('still lets lasers destroy fragments in their grace period', () => {
+    const { factory, onScore } = setup(() => 0.5)
+    factory.asteroids = [asteroid(1000, 0, ASTEROID_RADIUS_MEDIUM, { graceFrames: 30 })]
+    const ship = farShip()
+    ship.lasers = [new Laser({ x: 1000, y: 1000, xv: 0, yv: 0 })]
 
-    factory.update(farShip())
-    expect(a.xv).toBeCloseTo(SLOW) // ignored each other
+    factory.update(ship)
 
-    a.graceFrames = 0
-    b.graceFrames = 0
-    factory.update(farShip())
-    expect(a.xv).toBeLessThan(0) // now they bounce
+    expect(factory.asteroids.every((x) => x.r === ASTEROID_RADIUS_SMALL)).toBe(true)
+    expect(onScore).toHaveBeenCalledWith(50)
+  })
+
+  it('still lets fragments in their grace period hit the ship', () => {
+    const { factory } = setup(() => 0.5)
+    factory.asteroids = [asteroid(1000, 0, ASTEROID_RADIUS_MEDIUM, { graceFrames: 30 })]
+    const ship = new Ship({ x: 1000, y: 1000, r: 15, a: 0 })
+    ship.blinkNumber = 0 // not invulnerable
+
+    factory.update(ship)
+
+    expect(ship.isExploding()).toBe(true)
   })
 })
 
