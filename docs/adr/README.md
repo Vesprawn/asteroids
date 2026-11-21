@@ -12,6 +12,11 @@ This folder records significant architectural decisions for this project, using 
 
 ## Index
 
-| #    | Title                                                                  | Status   |
-| ---- | ---------------------------------------------------------------------- | -------- |
-| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md) | Accepted |
+| #    | Title                                                                              | Status   |
+| ---- | ---------------------------------------------------------------------------------- | -------- |
+| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md)             | Accepted |
+| 0002 | [Adopt TypeScript with strict type checking](0002-adopt-typescript.md)             | Accepted |
+| 0003 | [Use webpack for bundling](0003-use-webpack-for-bundling.md)                       | Accepted |
+| 0004 | [Watch-mode rebuilds without a dev server](0004-watch-build-without-dev-server.md) | Accepted |
+| 0005 | [Source layout and module structure](0005-source-layout-and-module-structure.md)   | Accepted |
+| 0006 | [ESLint and Prettier for linting and formatting](0006-linting-and-formatting.md)   | Accepted |
