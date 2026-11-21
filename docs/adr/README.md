@@ -22,3 +22,4 @@ This folder records significant architectural decisions for this project, using 
 | 0006 | [ESLint and Prettier for linting and formatting](0006-linting-and-formatting.md)   | Accepted |
 | 0007 | [Deploy `dist/` with `rsync --delete`](0007-deploy-dist-with-rsync-delete.md)      | Accepted |
 | 0008 | [Unit testing with Vitest](0008-unit-testing-with-vitest.md)                       | Accepted |
+| 0009 | [Asteroid rotation](0009-asteroid-rotation.md)                                     | Accepted |

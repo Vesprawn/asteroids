@@ -17,6 +17,19 @@ export const ASTEROID_POINTS_MEDIUM = 50
 export const ASTEROID_POINTS_SMALL = 100
 export const LEVELS_PER_COLOUR = 5 // [20]
 
+// Asteroid sizes: large splits into 2 medium, medium into 2 small, small is destroyed
+export const ASTEROID_RADIUS_LARGE = Math.ceil(ASTEROID_SIZE / 2)
+export const ASTEROID_RADIUS_MEDIUM = Math.ceil(ASTEROID_SIZE / 4)
+export const ASTEROID_RADIUS_SMALL = Math.ceil(ASTEROID_SIZE / 8)
+
+// Asteroid rotation (docs/adr/0009). Each asteroid gets a random spin in [MIN, MAX] in a random
+// direction, fixed for its lifetime. Set both to 0 to disable rotation.
+export const ASTEROID_SPIN_MIN = 10 // degrees per second
+export const ASTEROID_SPIN_MAX = 60 // degrees per second
+// Smaller asteroids spin faster: spin × (large radius / radius) ^ exponent. 0 = same for all sizes,
+// 0.5 = small spins ~2× large, 1 = small spins ~4× large.
+export const ASTEROID_SPIN_SIZE_EXPONENT = 0.5
+
 export const LASER_COLOUR = '#e6ffff' //  'white' // 'magenta'
 export const LASER_DISTANCE = 0.6 // max distance can travel as fraction of screen width
 export const LASER_SPEED = 500 // speed of lasers in pixels

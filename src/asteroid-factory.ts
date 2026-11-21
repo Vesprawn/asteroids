@@ -5,6 +5,9 @@ import {
   ASTEROID_POINTS_LARGE,
   ASTEROID_POINTS_MEDIUM,
   ASTEROID_POINTS_SMALL,
+  ASTEROID_RADIUS_LARGE,
+  ASTEROID_RADIUS_MEDIUM,
+  ASTEROID_RADIUS_SMALL,
   ASTEROID_SIZE,
   ASTEROID_SPEED,
   ASTEROID_VERTICIES,
@@ -12,12 +15,9 @@ import {
 } from './config'
 import { Asteroid } from './entities/asteroid'
 import type { Ship } from './entities/ship'
+import { randomSpin } from './physics/rotation'
 import type { Bounds, DebugFlags } from './types'
 import { distanceBetweenPoints } from './utils/geometry'
-
-const LARGE_RADIUS = Math.ceil(ASTEROID_SIZE / 2)
-const MEDIUM_RADIUS = Math.ceil(ASTEROID_SIZE / 4)
-const SMALL_RADIUS = Math.ceil(ASTEROID_SIZE / 8)
 
 export interface AsteroidFactoryConfig {
   bounds: Bounds
@@ -25,6 +25,8 @@ export interface AsteroidFactoryConfig {
   onScore: (points: number) => void
   /** Called when every asteroid in the belt has been destroyed. */
   onCleared: () => void
+  /** Random number source in [0, 1); injectable for deterministic tests. Defaults to Math.random. */
+  random?: () => number
 }
 
 export class AsteroidFactory {
@@ -33,11 +35,13 @@ export class AsteroidFactory {
   private levelMultiplier = 1
   private readonly onScore: (points: number) => void
   private readonly onCleared: () => void
+  private readonly random: () => number
 
   constructor(config: AsteroidFactoryConfig) {
     this.bounds = config.bounds
     this.onScore = config.onScore
     this.onCleared = config.onCleared
+    this.random = config.random ?? Math.random
   }
 
   createAsteroidBelt(ship: Ship, level: number): void {
@@ -50,11 +54,11 @@ export class AsteroidFactory {
 
       // Keep new asteroids away from the ship's spawn point
       do {
-        x = Math.floor(Math.random() * this.bounds.w)
-        y = Math.floor(Math.random() * this.bounds.h)
+        x = Math.floor(this.random() * this.bounds.w)
+        y = Math.floor(this.random() * this.bounds.h)
       } while (distanceBetweenPoints(ship.x, ship.y, x, y) < ASTEROID_SIZE * 2 + ship.r)
 
-      this.newAsteroid(x, y, LARGE_RADIUS)
+      this.newAsteroid(x, y, ASTEROID_RADIUS_LARGE)
     }
   }
 
@@ -101,16 +105,16 @@ export class AsteroidFactory {
   private destroyAsteroid(asteroid: Asteroid): void {
     asteroid.dead = true
 
-    if (asteroid.r === LARGE_RADIUS) {
-      this.newAsteroid(asteroid.x, asteroid.y, MEDIUM_RADIUS)
-      this.newAsteroid(asteroid.x, asteroid.y, MEDIUM_RADIUS)
+    if (asteroid.r === ASTEROID_RADIUS_LARGE) {
+      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_MEDIUM)
+      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_MEDIUM)
       this.onScore(ASTEROID_POINTS_LARGE)
       return
     }
 
-    if (asteroid.r === MEDIUM_RADIUS) {
-      this.newAsteroid(asteroid.x, asteroid.y, SMALL_RADIUS)
-      this.newAsteroid(asteroid.x, asteroid.y, SMALL_RADIUS)
+    if (asteroid.r === ASTEROID_RADIUS_MEDIUM) {
+      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_SMALL)
+      this.newAsteroid(asteroid.x, asteroid.y, ASTEROID_RADIUS_SMALL)
       this.onScore(ASTEROID_POINTS_MEDIUM)
       return
     }
@@ -120,20 +124,20 @@ export class AsteroidFactory {
 
   private randomVelocity(): number {
     return (
-      ((Math.random() * ASTEROID_SPEED * this.levelMultiplier) / FPS) *
-      (Math.random() < 0.5 ? 1 : -1)
+      ((this.random() * ASTEROID_SPEED * this.levelMultiplier) / FPS) *
+      (this.random() < 0.5 ? 1 : -1)
     )
   }
 
   private createJagOffsets(vertices: number): number[] {
     return Array.from(
       { length: vertices },
-      () => Math.random() * ASTEROID_JAG * 2 + 1 - ASTEROID_JAG,
+      () => this.random() * ASTEROID_JAG * 2 + 1 - ASTEROID_JAG,
     )
   }
 
   private newAsteroid(x: number, y: number, r: number): void {
-    const verticies = Math.floor(Math.random() * (ASTEROID_VERTICIES + 1) + ASTEROID_VERTICIES / 2)
+    const verticies = Math.floor(this.random() * (ASTEROID_VERTICIES + 1) + ASTEROID_VERTICIES / 2)
 
     this.asteroids = [
       ...this.asteroids,
@@ -144,7 +148,8 @@ export class AsteroidFactory {
         xv: this.randomVelocity(),
         yv: this.randomVelocity(),
         r,
-        a: Math.random() * Math.PI * 2,
+        a: this.random() * Math.PI * 2,
+        spin: randomSpin(r, this.random),
         offsets: this.createJagOffsets(verticies),
       }),
     ]

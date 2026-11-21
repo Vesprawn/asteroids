@@ -9,6 +9,8 @@ export interface AsteroidConfig {
   yv: number
   r: number
   a: number
+  /** Rotation speed in radians per frame (positive = clockwise on screen). */
+  spin: number
   verticies: number
   offsets: number[]
 }
@@ -20,6 +22,7 @@ export class Asteroid {
   yv: number
   r: number
   a: number
+  spin: number
   verticies: number
   offsets: number[]
   dead = false
@@ -31,11 +34,14 @@ export class Asteroid {
     this.yv = config.yv
     this.r = config.r
     this.a = config.a
+    this.spin = config.spin
     this.verticies = config.verticies
     this.offsets = config.offsets
   }
 
   update(bounds: Bounds): void {
+    this.a = (this.a + this.spin) % (Math.PI * 2)
+
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- tuning flag in config
     if (!ASTEROID_MOVES) return
 
